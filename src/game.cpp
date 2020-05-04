@@ -98,7 +98,6 @@ void Game::PlaceFood() {
 //To change the direction while checking the opposite direction for computer snake
 void Game::ChangeDirection(Snake &snake, Snake::Direction input,
                                  Snake::Direction opposite) const {
-                                   std::cout<< "Change Direction "<<"\n";
   if (snake.direction != opposite || snake.size == 1) snake.direction = input;
   return;
 }

@@ -1,6 +1,8 @@
 #include "snake.h"
 #include <cmath>
 #include <iostream>
+#include <functional>
+
 
 void Snake::Update() {
   SDL_Point prev_cell{
@@ -78,6 +80,12 @@ bool Snake::SnakeCell(int x, int y) {
 }
 void Snake::EatSnake(Snake &snake){
   this->size += snake.size;
+   //This is not working need to add the block in the snake
+  while(snake.size--){
+    this->Update();
+    this->GrowBody();
+
+  }
   if(this->speed < .6)
     this->speed += 0.02;
   snake.size = 1;
@@ -87,13 +95,25 @@ void Snake::EatSnake(Snake &snake){
 void Snake::Killed(Snake &snake){
   if( abs(this->head_x - snake.head_x) < 1 && abs(this->head_y - snake.head_y) < 1){ 
         if(this->size > snake.size){
-          snake.size=1; snake.alive = false; return ;
+          this->EatSnake(snake);  return;
+          }
+          else if(this->size == snake.size)
+          {
+            if (this->snake_type == SnakeType::Computer) //protect the User snake if size are same
+              {
+                snake.EatSnake(std::ref(*this));
+                return;
+              }
+              else
+              {
+                this->EatSnake(snake);  return;
+              }
+              
           }
           else
           {
-            this->alive = false;
-            this->size = 1;
-            return;
+            snake.EatSnake(std::ref(*this));
+                return;
           }
           
       }
