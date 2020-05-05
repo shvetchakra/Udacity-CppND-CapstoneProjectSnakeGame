@@ -3,9 +3,10 @@
 
 #include <vector>
 #include <iostream>
+#include <memory>
 #include "SDL.h"
 
-class Snake {
+class Snake : public std::enable_shared_from_this<Snake>{ //to pass the this pointer of snake's shared pointer
  public:
   enum class Direction { kUp, kDown, kLeft, kRight };
   enum class SnakeType { User, Computer };
@@ -23,8 +24,9 @@ class Snake {
 
   void GrowBody();
   bool SnakeCell(int x, int y);
-  void Killed(Snake &snake);
-  void EatSnake(Snake &snake);
+  void Killed(std::shared_ptr<Snake> snake); // 'thisSnake' has Killed 'snake'
+  void EatSnake(std::shared_ptr<Snake> snake); //eat the body of the snake
+  std::shared_ptr<Snake> get_shared_this() { return shared_from_this(); }
 
   Direction direction = Direction::kUp;
   SnakeType snake_type = SnakeType::Computer;

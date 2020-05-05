@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <memory>
 #include <algorithm>
 
 Renderer::Renderer(const std::size_t screen_width,
@@ -40,7 +41,7 @@ Renderer::~Renderer() {
   SDL_Quit();
 }
 
-void Renderer::Render(/*const Snake *snake*/std::vector<Snake*> &snake_vector, std::vector<SDL_Point> const &food_vector) {
+void Renderer::Render(std::vector<std::shared_ptr <Snake>> snake_vector, std::vector<SDL_Point> const &food_vector) {
   SDL_Rect block;
   block.w = screen_width / grid_width;
   block.h = screen_height / grid_height;
@@ -57,8 +58,9 @@ void Renderer::Render(/*const Snake *snake*/std::vector<Snake*> &snake_vector, s
   SDL_RenderFillRect(sdl_renderer, &block);
   }
   // Render snake's body
-  for(auto snake_it = snake_vector.begin(); snake_it != snake_vector.end();  ++snake_it ){
-    Snake *snake = *snake_it;
+  //for(std::shared_ptr<Snake> &snake = snake_vector.begin(); snake != snake_vector.end();  ++snake ){
+    //Snake *snake = *snake_it;
+  std::for_each(snake_vector.begin(), snake_vector.end(), [&](std::shared_ptr<Snake> &snake) {
   if(snake->snake_type == Snake::SnakeType::Computer)
     SDL_SetRenderDrawColor(sdl_renderer, 0x00, 0xFF, 0xFF, 0xFF);
   else
@@ -79,7 +81,7 @@ void Renderer::Render(/*const Snake *snake*/std::vector<Snake*> &snake_vector, s
   }
   SDL_RenderFillRect(sdl_renderer, &block);
   SDL_RenderPresent(sdl_renderer);
-  }
+  });
 
   // Update Screen
   SDL_RenderPresent(sdl_renderer);

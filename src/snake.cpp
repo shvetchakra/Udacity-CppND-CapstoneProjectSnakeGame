@@ -78,49 +78,59 @@ bool Snake::SnakeCell(int x, int y) {
   }
   return false;
 }
-void Snake::EatSnake(Snake &snake){
-  this->size += snake.size;
-   //This is not working need to add the block in the snake
-  while(snake.size--){
-    this->Update();
-    this->GrowBody();
+//Update as per the victim snake's properties
+void Snake::EatSnake(std::shared_ptr<Snake> snake){
+  std::shared_ptr<Snake> this_snake = this->get_shared_this();
+  this_snake->size += snake->size;
+  
+  while(snake->size--){ //eat the body of another snake
+    this_snake->Update();
+    this_snake->GrowBody();
 
   }
-  if(this->speed < .6)
-    this->speed += 0.02;
-  snake.size = 1;
-  snake.alive = false;
+  if(this_snake->speed < .6 && this_snake->snake_type == SnakeType::User)
+    this_snake->speed += 0.02;
+  else if(this_snake->speed < .4)
+    this_snake->speed += 0.005;
+
+  snake->size = 1;
+  snake->alive = false;
+  if(this_snake->snake_type == SnakeType::User)
+    std::cout<< "User snake has killed Computer snake \n";
+  else
+    std::cout<< "Computer snake has killed User snake \n";
   return;
 }
-void Snake::Killed(Snake &snake){
-  if( abs(this->head_x - snake.head_x) < 1 && abs(this->head_y - snake.head_y) < 1){ 
-        if(this->size > snake.size){
-          this->EatSnake(snake);  return;
+void Snake::Killed(std::shared_ptr<Snake> snake){
+  std::shared_ptr<Snake> this_snake = this->get_shared_this();
+  //If head on collision between snakes
+  if( abs(this_snake->head_x - snake->head_x) < 1 && abs(this_snake->head_y - snake->head_y) < 1){ 
+        if(this_snake->size > snake->size){ //check who is bigger
+          this_snake->EatSnake(snake);  return;
           }
-          else if(this->size == snake.size)
+          else if(this_snake->size == snake->size) //if equal preference to user snake
           {
-            if (this->snake_type == SnakeType::Computer) //protect the User snake if size are same
+            if (this_snake->snake_type == SnakeType::Computer) //protect the User snake if size are same
               {
-                snake.EatSnake(std::ref(*this));
-                return;
+                snake->EatSnake(this_snake);  return;
+                
               }
               else
               {
-                this->EatSnake(snake);  return;
+                this_snake->EatSnake(snake);  return;
               }
               
           }
           else
           {
-            snake.EatSnake(std::ref(*this));
-                return;
+            snake->EatSnake(get_shared_this()); return;
           }
           
       }
-  if( snake.SnakeCell(static_cast<int> (head_x), static_cast<int> (head_y)))
+  if( snake->SnakeCell(static_cast<int> (head_x), static_cast<int> (head_y))) //bite on the body of the snake
   {
-    this->EatSnake(snake);
+    this_snake->EatSnake(snake);
     return;
   }
-  return ;
+  return ; //return without Killing anyone
 }

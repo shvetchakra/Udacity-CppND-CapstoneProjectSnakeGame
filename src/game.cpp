@@ -1,22 +1,21 @@
 #include "game.h"
 #include <iostream>
 #include <algorithm>
+#include <memory>
 #include "SDL.h"
 #include "snake.h"
 
 
 Game::Game(std::size_t grid_width, std::size_t grid_height)
     : grid_width(grid_width), grid_height(grid_height),
-      snake(grid_width, grid_height, Snake::SnakeType::User),
-      //compSnake(grid_width,grid_height, Snake::SnakeType::Computer),
+      snake(std::make_shared <Snake>(grid_width, grid_height, Snake::SnakeType::User)),
       engine(dev()),
       random_w(0, static_cast<int>(grid_width)),
       random_h(0, static_cast<int>(grid_height)) {
   
  PlaceFood();
- snake_vector.emplace_back(&snake);
-  //snake_vector.emplace_back(&compSnake);
-}
+ snake_vector.emplace_back(snake); //Pushing User snake pointer in snake vector 
+ }
 
 void Game::Run(Controller const &controller, Renderer &renderer,
                std::size_t target_frame_duration) {
@@ -34,29 +33,36 @@ void Game::Run(Controller const &controller, Renderer &renderer,
 
     // Input, Update, Render - the main game loop.
     controller.HandleInput(running, snake);
-
-    controller.HandleInput(running, compSnake); // change it later and make it automated
+    
     SDL_Point prev_food = food_vector[0];
     Update();
     renderer.Render(snake_vector, food_vector);
     //renderer.Render(compSnake, food_vector);
 
     frame_end = SDL_GetTicks();
-    food_duration = frame_end - food_placement_time;
+    food_duration = frame_end - food_placement_time; //to get the food duration from the last food placement
     if(food_vector.size() == 0)
       PlaceFood();
-    if(food_duration >= 10000 && food_vector.size()>0)
+    if(food_duration >= 10000 && food_vector.size()>0) //if more than 10 sec place more food and create computer snake
     {
       PlaceFood();
       food_placement_time = SDL_GetTicks();
-      prev_food = food_vector.back();
-      if(compSnake.snake_type == Snake::SnakeType::Computer && compSnake.size == 1){
-      compSnake = Snake(grid_width,grid_height, Snake::SnakeType::Computer);
-      snake_vector.emplace_back(&compSnake);
+      
+      //computer snake initiated
+      if(!compSnake){
+        compSnake = std::make_shared< Snake>(grid_width,grid_height, Snake::SnakeType::Computer);
+        snake_vector.emplace_back(compSnake);
       }
+      else if(!compSnake->alive) //computer snake reinitiated after death
+      {
+        Snake snake = Snake(grid_width,grid_height, Snake::SnakeType::Computer);
+        compSnake.reset( &snake);
+        snake_vector.emplace_back(compSnake);
+        compSnake->alive = true;
+      }
+      
     }
-    // Keep track of how long each loop through the input/update/render cycle
-    // takes.
+    // Keep track of how long each loop through the input/update/render cycle takes.
     frame_count++;
     frame_duration = frame_end - frame_start;
 
@@ -83,28 +89,30 @@ void Game::PlaceFood() {
     y = random_h(engine);
     // Check that the location is not occupied by a snake item before placing
     // food.
-    if (!snake.SnakeCell(x, y) && food_vector.size() < 5) { //need to another check to not place food on food itself
+    if (!snake->SnakeCell(x, y) && food_vector.size() < 5) { 
       SDL_Point food;
       food.x = x;
       food.y = y;
       food_vector.emplace_back(food);
       return;
     }
-    else if(food_vector.size()>=5)
+    else if(food_vector.size()>=5) //if there are five food , donot place new food
       return;
 
   }
 }
 //To change the direction while checking the opposite direction for computer snake
-void Game::ChangeDirection(Snake &snake, Snake::Direction input,
+//For the computer snake to change the direction 
+void Game::ChangeDirection(std::shared_ptr<Snake> snake, Snake::Direction input,
                                  Snake::Direction opposite) const {
-  if (snake.direction != opposite || snake.size == 1) snake.direction = input;
+  if (snake->direction != opposite || snake->size == 1) snake->direction = input;
   return;
 }
-//get the direction to reach to food for computer snake using manhattan distance to find closest food
-void Game::GetFoodDirection(Snake &snake){
-  int new_x = static_cast<int>(compSnake.head_x);
-  int new_y = static_cast<int>(compSnake.head_y);
+
+//Get the direction to reach to food for computer snake using manhattan distance to find closest food
+void Game::GetFoodDirection(std::shared_ptr<Snake> snake){
+  int new_x = static_cast<int>(compSnake->head_x);
+  int new_y = static_cast<int>(compSnake->head_y);
   std::sort(food_vector.begin(),food_vector.end(),[&new_x, &new_y](const auto& a, const auto& b)   {
                                         return ((abs(a.x - new_x) + abs(a.y - new_y)) < (abs(b.x - new_x) + abs(b.y - new_y)));
                                       });
@@ -133,27 +141,39 @@ void Game::GetFoodDirection(Snake &snake){
 
 void Game::Update() {
   
-     //computer Snake killed user snake
-     compSnake.Killed(snake);
-  if (!snake.alive) return;
-     //user snake killer computer snake
-     snake.Killed(compSnake);
+    
+    if(snake != nullptr && compSnake != nullptr){
 
-  if (!compSnake.alive) {
-    compSnake = Snake(grid_width,grid_height, Snake::SnakeType::Computer);
-    compSnake.alive = true;
+      SnakeSize(snake->size);
+      compSnake->Killed(snake);//computer Snake killed user snake
+    }
+    if (!snake->alive) return;
+    
+    if(snake != nullptr && compSnake != nullptr)
+     {
+       snake->Killed(compSnake);//user snake killer computer snake
+        int compSnakeSize = compSnake->size;
+        if(!compSnake->alive)
+          UpdateScore(compSnakeSize);
+     }
+  if (compSnake != nullptr && !compSnake->alive) { // if User snake has killed Computer snake reset computer snake pointer
+    
+    snake_vector.pop_back();
+    Snake *snake = nullptr;
+    compSnake.reset( snake);
+   
   }
-  snake.Update();
-  GetFoodDirection(compSnake);//static_cast<Snake::Direction>(rand() % 4);
-
-  compSnake.Update();
-
+  snake->Update(); //update the position of user snake
+  if(compSnake != nullptr){
+    GetFoodDirection(compSnake);
+    compSnake->Update(); //update the position of computer snake if that's alive
+    }
   
 
-  // Check if there's food over here
-  for(auto snake_it = snake_vector.begin(); snake_it != snake_vector.end();  ++snake_it ){
-    
-    Snake  *snake = *snake_it;
+  // Check if there's food over here 
+  // Check which snake has eaten the food.
+  std::for_each(snake_vector.begin(), snake_vector.end(),  [&](std::shared_ptr<Snake> &snake){
+ 
     int new_x = static_cast<int>(snake->head_x);
     int new_y = static_cast<int>(snake->head_y);
   for (auto food = food_vector.begin(); food != food_vector.end(); ++food){
@@ -166,15 +186,15 @@ void Game::Update() {
       PlaceFood();
       // Grow snake and increase speed.
       snake->GrowBody();
-      if(snake->snake_type == Snake::SnakeType::Computer && snake->speed < .1)
-        snake->speed += 0.005;
+      if(snake->snake_type == Snake::SnakeType::Computer && snake->speed < .4)//max speed of computer snake
+        snake->speed += 0.005; //lesser increment in speed of computer snake
       else
-        if(snake->speed < .6)
-          snake->speed += 0.02;  
+        if(snake->speed < .6) //max speed of user snake
+          snake->speed += 0.02;  //increment in snake speed
     }
   }
-  }//snake loop close
+  });//snake loop close
 }
 
 int Game::GetScore() const { return score; }
-int Game::GetSize() const { return snake.size; }
+int Game::GetSize() const { return userSnakeSize; }
